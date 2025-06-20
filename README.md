@@ -209,7 +209,8 @@ When a user makes a purchase, their **referrer** (Level 1) and their **referrerâ
 
 
 ## Screenshots and Visuals
-> **For detailed visuals of the project, including screenshots of the user interface and database, please refer to the images.pdf file included in the project.**
+For detailed visuals of the project, including screenshots of the user interface and database, please refer to the ***images.pdf*** file included in the project.
+
 
 
 
