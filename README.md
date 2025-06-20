@@ -18,7 +18,6 @@ This project is built using **Node.js**, **Express**, **MongoDB**, and **Socket.
   * **Level 2 Earnings**: Indirect referrals earn a 1% commission.
 * **Real-time Earnings Updates**: Using WebSockets, users see their earnings update in real-time as their referrals make purchases.
 * **Admin Dashboard**: API to fetch detailed reports, breakdown of earnings across levels, and referrals.
-* **Charts**: Visualizations of earnings distribution and sources across referrals.
 
 ---
 
@@ -28,7 +27,6 @@ This project is built using **Node.js**, **Express**, **MongoDB**, and **Socket.
 
    * Built using plain **HTML**, **CSS**, and **JavaScript**.
    * Real-time earnings updates are received using **WebSocket** (Socket.IO).
-   * **Chart.js** is used to visualize earnings data (pie charts, bar charts).
 
 2. **Backend**:
 
