@@ -28,7 +28,7 @@ app.post('/createUser', async (req, res) => {
 
   // Basic validation
   if (!name || !email) {
-    return res.status(400).send('Name and Email are required');
+    return res.status(400).json({ message: 'Name and Email are required' });  // Returning JSON error message
   }
 
   try {
@@ -58,10 +58,10 @@ app.post('/createUser', async (req, res) => {
       }
     }
 
-    res.status(201).send('User created successfully!');
+    res.status(201).json({ message: 'User created successfully!' });  // Return a success message in JSON format
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).send('Error creating user: ' + error.message);
+    res.status(500).json({ message: 'Error creating user: ' + error.message });  // Returning JSON error message
   }
 });
 
@@ -73,10 +73,6 @@ app.get('/earningsReport/:userId', async (req, res) => {
     // Find all earnings for this user from the Earnings collection
     const earningsData = await Earnings.find({ user: userId }).populate('referralUser', 'name email');
     
-    // Log the earningsData to verify what is returned
-    console.log('Earnings Data for User:', earningsData);
-
-    // If no earnings are found, return 0 for level1Earnings and level2Earnings
     if (!earningsData || earningsData.length === 0) {
       return res.status(404).json({
         message: 'No earnings found for this user',
@@ -85,37 +81,29 @@ app.get('/earningsReport/:userId', async (req, res) => {
       });
     }
 
-    // Initialize the earnings breakdown
     const earningsBreakdown = {
       level1: 0,
       level2: 0,
       total: 0
     };
 
-    // Aggregate earnings data to calculate total and level-specific earnings
     earningsData.forEach(entry => {
-      if (entry.level === 1) {
-        earningsBreakdown.level1 += entry.amount;  // Add Level 1 earnings
-      } else if (entry.level === 2) {
-        earningsBreakdown.level2 += entry.amount;  // Add Level 2 earnings
-      }
-      earningsBreakdown.total += entry.amount;  // Add to total earnings
+      if (entry.level === 1) earningsBreakdown.level1 += entry.amount;
+      else if (entry.level === 2) earningsBreakdown.level2 += entry.amount;
+
+      earningsBreakdown.total += entry.amount;
     });
 
-    // Log the earnings breakdown for debugging purposes
-    console.log('Earnings Breakdown:', earningsBreakdown);
-
-    // Send the earnings breakdown and details as the response
     res.status(200).json({
       userId,
       totalEarnings: earningsBreakdown.total,
       level1Earnings: earningsBreakdown.level1,
       level2Earnings: earningsBreakdown.level2,
       earningsDetails: earningsData
-    });
+    });  // Returning the data as JSON
   } catch (error) {
     console.error('Error fetching earnings report:', error);
-    res.status(500).json({ message: 'Error fetching earnings report' });
+    res.status(500).json({ message: 'Error fetching earnings report' });  // Returning JSON error message
   }
 });
 
@@ -140,10 +128,32 @@ app.get('/referralEarningsBreakdown/:userId', async (req, res) => {
     res.status(200).json({
       userId,
       referralEarnings: referralBreakdown
-    });
+    });  // Returning the data as JSON
   } catch (error) {
     console.error('Error fetching referral earnings breakdown:', error);
-    res.status(500).json({ message: 'Error fetching referral earnings breakdown' });
+    res.status(500).json({ message: 'Error fetching referral earnings breakdown' });  // Returning JSON error message
+  }
+});
+
+// Fetch user details (for displaying on frontend)
+app.get('/userDetails/:userId', async (req, res) => {
+  const { userId } = req.params; // Fetch the userId from request parameters
+
+  try {
+    // Fetch user details including referrals and referredBy (populating the fields)
+    const user = await User.findById(userId)
+      .populate('referrals')
+      .populate('referredBy', 'name email');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' }); // Ensure JSON response for errors
+    }
+
+    // Return the full user details as JSON
+    res.status(200).json(user); // Ensure this is JSON, not HTML
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    res.status(500).json({ message: 'Error fetching user details' }); // Ensure JSON error response
   }
 });
 
@@ -170,7 +180,6 @@ app.post('/purchase', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).send('User not found');
 
-    let totalEarnings = 0;
     let level1Earnings = 0;
     let level2Earnings = 0;
 
@@ -184,40 +193,24 @@ app.post('/purchase', async (req, res) => {
 
     // Level 1 earnings: 5% of the purchase amount
     if (level1User) {
-      level1Earnings = purchaseAmount * 0.05;
+      level1Earnings = purchaseAmount * 0.05;  // 5% of the purchase amount
       level1User.level1Earnings += level1Earnings;  // Add to Level 1 earnings
       level1User.earnings += level1Earnings;        // Add to total earnings
       await level1User.save();
-      totalEarnings += level1Earnings;
+
+      // Emit earnings for Level 1 referrer (User 4)
+      io.emit('earningsUpdate', { userId: level1User._id, earnings: level1Earnings, referralType: 'Level 1' });
     }
 
     // Level 2 earnings: 1% of the purchase amount from Level 1 users
     if (level2User) {
-      level2Earnings = purchaseAmount * 0.01;
+      level2Earnings = purchaseAmount * 0.01;  // 1% of the purchase amount
       level2User.level2Earnings += level2Earnings;  // Add to Level 2 earnings
       level2User.earnings += level2Earnings;        // Add to total earnings
       await level2User.save();
-      totalEarnings += level2Earnings;
-    }
 
-    // Save the earnings in the Earnings collection
-    const earnings = new Earnings({
-      user: userId,
-      referralUser: user.referredBy,
-      amount: totalEarnings,
-      level: 2,  // Assuming this is indirect earnings (Level 2)
-      level1Earnings,  // Save Level 1 earnings separately
-      level2Earnings   // Save Level 2 earnings separately
-    });
-    await earnings.save();
-
-    // Emit real-time updates to the clients
-    if (level1Earnings > 0) {
-      io.emit('earningsUpdate', { userId: user.referredBy, earnings: level1Earnings });
-    }
-
-    if (level2Earnings > 0) {
-      io.emit('earningsUpdate', { userId: (await User.findById(user.referredBy)).referredBy, earnings: level2Earnings });
+      // Emit earnings for Level 2 referrer (User 1)
+      io.emit('earningsUpdate', { userId: level2User._id, earnings: level2Earnings, referralType: 'Level 2' });
     }
 
     res.status(200).send('Purchase processed and earnings updated!');

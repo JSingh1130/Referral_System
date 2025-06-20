@@ -5,22 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Earnings</title>
   <script src="/socket.io/socket.io.js"></script> <!-- WebSocket connection script -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js for visualizations -->
 </head>
 <body>
   <div>
     <h1>User Earnings</h1>
     <p id="earnings">Earnings: 0</p> <!-- Earnings will be displayed here -->
+    <p id="earningsDetails">Earnings Details: </p> <!-- Description of the earnings -->
   </div>
 
-  <h2>Referral-Based Earnings Distribution</h2>
-  <canvas id="earningsChart" width="400" height="400"></canvas> <!-- Pie Chart for referral earnings distribution -->
-
-  <h2>Earnings Sources from Each Leg of the Referral Tree</h2>
-  <canvas id="referralChart" width="400" height="400"></canvas> <!-- Bar Chart for earning sources -->
+  <div>
+    <h2>User Information</h2>
+    <p id="userInfo"></p> <!-- Full user data will be displayed here -->
+  </div>
 
   <script>
-    const userId = '68549a3678314b888bd54af4';  // Example userId (this can be dynamically set)
+    const userId = '6854b8979ce03a353debc028';  // Example userId (this should be dynamically set)
     const socket = io();  // WebSocket connection
 
     // Log when the connection is established
@@ -36,87 +35,33 @@
       if (data.userId === userId) {
         console.log('Updating earnings for User:', data.earnings);
         document.getElementById('earnings').innerText = 'Earnings: ' + data.earnings;
+
+        // Show which referral level the earnings came from
+        document.getElementById('earningsDetails').innerText = `Earnings from ${data.referralType} referral: ${data.earnings}`;
       }
     });
 
-    // Fetch the earnings report data
-    fetch(`/earningsReport/${userId}`)
+    // Fetch the full user details from the backend
+    fetch(`/userDetails/${userId}`)
       .then(response => response.json())
       .then(data => {
-        console.log('Earnings Data for Pie Chart:', data);  // Log the data for debugging
+        console.log('User Details:', data);  // Log the user details
 
-        // Handle the case when no earnings are found (defaulting to 0)
-        const level1Earnings = data.level1Earnings || 0;  // Default to 0 if undefined
-        const level2Earnings = data.level2Earnings || 0;  // Default to 0 if undefined
+        // Display the full user data on the frontend
+        const userInfo = `
+          <strong>Name:</strong> ${data.name} <br>
+          <strong>Email:</strong> ${data.email} <br>
+          <strong>Referral Level:</strong> ${data.referralLevel} <br>
+          <strong>Total Earnings:</strong> ${data.earnings} <br>
+          <strong>Level 1 Earnings:</strong> ${data.level1Earnings} <br>
+          <strong>Level 2 Earnings:</strong> ${data.level2Earnings} <br>
+          <strong>Referrals:</strong> ${data.referrals.map(ref => ref.name).join(', ')} <br>
+          <strong>Referred By:</strong> ${data.referredBy ? data.referredBy.name : 'No Referrer'}
+        `;
 
-        // Create Pie Chart to show the referral earnings distribution
-        const ctx = document.getElementById('earningsChart').getContext('2d');
-        new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: ['Level 1 Earnings', 'Level 2 Earnings'],
-            datasets: [{
-              label: 'Referral Earnings Distribution',
-              data: [level1Earnings, level2Earnings],
-              backgroundColor: ['#ff9999', '#66b3ff'],
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { position: 'top' },
-              tooltip: {
-                callbacks: {
-                  label: function(tooltipItem) {
-                    return `${tooltipItem.label}: ${tooltipItem.raw}`;
-                  }
-                }
-              }
-            }
-          }
-        });
+        document.getElementById('userInfo').innerHTML = userInfo;
       })
-      .catch(error => console.error('Error fetching earnings data:', error));
-
-    // Fetch referral earnings breakdown data
-    fetch(`/referralEarningsBreakdown/${userId}`)
-      .then(response => response.json())
-      .then(data => {
-        const labels = data.referralEarnings.map(entry => entry.userName);
-        const earnings = data.referralEarnings.map(entry => entry.earnings);
-
-        // Create Bar Chart to show the earning sources from each leg of the referral tree
-        const ctx = document.getElementById('referralChart').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Referral Earnings Sources',
-              data: earnings,
-              backgroundColor: '#66b3ff',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: { beginAtZero: true }
-            },
-            plugins: {
-              tooltip: {
-                callbacks: {
-                  label: function(tooltipItem) {
-                    return `Earnings: ${tooltipItem.raw}`;
-                  }
-                }
-              }
-            }
-          }
-        });
-      })
-      .catch(error => console.error('Error fetching referral earnings data:', error));
+      .catch(error => console.error('Error fetching user details:', error));
   </script>
 </body>
 </html>
